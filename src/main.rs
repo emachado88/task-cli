@@ -121,8 +121,13 @@ fn add_task(description: String) {
     let id = tasks.len() as u128 + 1;
     let now = now_string();
     let task = Task::new(id, description, Status::Todo, now.clone(), now);
+    let msg = format!(
+        "Task added: #{} [{}] {}",
+        task.id, task.status, task.description
+    );
     tasks.push(task);
     write_tasks_file(tasks);
+    println!("{msg}");
 }
 
 fn delete_task(id: u128) {
@@ -136,6 +141,22 @@ fn delete_task(id: u128) {
     println!("Deleted task {}: {}", task.id, task.description);
 }
 
+fn update_task(id: u128, description: String) {
+    let mut tasks = read_tasks_file();
+    let Some(task) = tasks.iter_mut().find(|task| task.id == id) else {
+        eprintln!("Task {id} not found.");
+        std::process::exit(1);
+    };
+    task.description = description;
+    task.updated_at = now_string();
+    let msg = format!(
+        "Task updated: #{} [{}] {}",
+        task.id, task.status, task.description
+    );
+    write_tasks_file(tasks);
+    println!("{msg}");
+}
+
 fn main() {
     let matches = command!()
         .subcommand(
@@ -146,14 +167,29 @@ fn main() {
                     Arg::new("description")
                         .help("task description to add")
                         .required(true)
-                        .num_args(1..)
+                        .num_args(1)
                         .value_parser(clap::value_parser!(String)),
                 ),
         )
         .subcommand(
             Command::new("update")
                 .about("updates an existing task")
-                .arg_required_else_help(true),
+                .arg_required_else_help(true)
+                .args(
+                    vec![
+                        Arg::new("id")
+                            .help("id of the task to update")
+                            .required(true)
+                            .value_parser(clap::value_parser!(u128)),
+                        Arg::new("description")
+                            .help("new description of the task")
+                            .required(true)
+                            .num_args(1)
+                            .value_parser(clap::value_parser!(String)),
+                    ]
+                    .into_iter()
+                    .collect::<Vec<Arg>>(),
+                ),
         )
         .subcommand(
             Command::new("delete")
@@ -175,8 +211,8 @@ fn main() {
         ]))
         .get_matches();
 
-    if matches.subcommand_matches("add").is_some() {
-        let description = matches
+    if let Some(add_matches) = matches.subcommand_matches("add") {
+        let description = add_matches
             .get_one::<String>("description")
             .unwrap_or_else(|| {
                 panic!("description is required");
@@ -185,11 +221,23 @@ fn main() {
         add_task(description);
     }
 
-    if let Some(id) = matches.subcommand_matches("delete") {
-        let id = id.get_one::<u128>("id").unwrap_or_else(|| {
+    if let Some(delete_matches) = matches.subcommand_matches("delete") {
+        let id = delete_matches.get_one::<u128>("id").unwrap_or_else(|| {
             panic!("id is required");
         });
         delete_task(id.to_owned());
+    }
+
+    if let Some(update_matches) = matches.subcommand_matches("update") {
+        let id = update_matches.get_one::<u128>("id").unwrap_or_else(|| {
+            panic!("id is required");
+        });
+        let description = update_matches
+            .get_one::<String>("description")
+            .unwrap_or_else(|| {
+                panic!("description is required");
+            });
+        update_task(id.to_owned(), description.to_owned());
     }
 
     if let Some(list_matches) = matches.subcommand_matches("list") {

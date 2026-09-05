@@ -75,6 +75,11 @@ fn now_string() -> String {
         .to_string()
 }
 
+fn exit_with_error(context: &str, err: impl std::fmt::Display) -> ! {
+    eprintln!("{context}: {err}");
+    std::process::exit(1);
+}
+
 fn ensure_tasks_file() {
     let path = "tasks.json";
     if Path::new(path).exists() {
@@ -93,8 +98,11 @@ fn ensure_tasks_file() {
     let answer = input.trim().to_lowercase();
     if answer == "y" || answer == "yes" {
         let empty = TaskList { tasks: vec![] };
-        let json = to_string_pretty(&empty).expect("failed to serialize empty task list");
-        fs::write(path, json).expect("failed to write tasks.json");
+        let json = to_string_pretty(&empty)
+            .unwrap_or_else(|err| exit_with_error("Failed to serialize empty task list", err));
+        if let Err(err) = fs::write(path, json) {
+            exit_with_error("Failed to write tasks file", err);
+        }
         println!("Created {path}");
     } else {
         eprintln!("Aborting: tasks.json is required to continue.");
@@ -104,16 +112,27 @@ fn ensure_tasks_file() {
 
 fn read_tasks_file() -> Vec<Task> {
     ensure_tasks_file();
-    let file = fs::File::open("tasks.json").expect("failed to open tasks.json");
+    let file = match fs::File::open("tasks.json") {
+        Ok(file) => file,
+        Err(err) => exit_with_error("Failed to open tasks file", err),
+    };
     let reader = BufReader::new(file);
-    let list: TaskList = from_reader(reader).expect("failed to parse tasks.json");
+    let list: TaskList = match from_reader(reader) {
+        Ok(list) => list,
+        Err(err) => exit_with_error("Failed to parse tasks file", err),
+    };
     list.tasks
 }
 
 fn write_tasks_file(tasks: Vec<Task>) {
     let list = TaskList { tasks };
-    let json = to_string_pretty(&list).expect("failed to serialize tasks");
-    fs::write("tasks.json", json).expect("failed to write tasks.json");
+    let json = match to_string_pretty(&list) {
+        Ok(json) => json,
+        Err(err) => exit_with_error("Failed to serialize tasks", err),
+    };
+    if let Err(err) = fs::write("tasks.json", json) {
+        exit_with_error("Failed to write tasks file", err);
+    }
 }
 
 fn add_task(description: String) {

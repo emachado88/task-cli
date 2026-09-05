@@ -14,6 +14,16 @@ enum Status {
     Done,
 }
 
+impl Status {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Status::Todo => "todo",
+            Status::InProgress => "in-progress",
+            Status::Done => "done",
+        }
+    }
+}
+
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -147,10 +157,14 @@ fn main() {
         )
         .subcommand(Command::new("mark-in-progress").about("marks a task as in progress"))
         .subcommand(Command::new("mark-done").about("marks a task as done"))
-        .subcommand(Command::new("list").about("lists all tasks"))
+        .subcommand(Command::new("list").about("lists all tasks").subcommands([
+            Command::new(Status::Todo.as_str()).about("lists all todo tasks"),
+            Command::new(Status::InProgress.as_str()).about("lists all in progress tasks"),
+            Command::new(Status::Done.as_str()).about("lists all done tasks"),
+        ]))
         .get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("add") {
+    if matches.subcommand_matches("add").is_some() {
         let description = matches
             .get_one::<String>("description")
             .unwrap_or_else(|| {
@@ -160,10 +174,27 @@ fn main() {
         add_task(description);
     }
 
-    if matches.subcommand_matches("list").is_some() {
+    if let Some(list_matches) = matches.subcommand_matches("list") {
+        let filter = match list_matches.subcommand_name() {
+            Some(name) if name == Status::Todo.as_str() => Some(Status::Todo),
+            Some(name) if name == Status::InProgress.as_str() => Some(Status::InProgress),
+            Some(name) if name == Status::Done.as_str() => Some(Status::Done),
+            _ => None,
+        };
         let tasks = read_tasks_file();
         println!("Tasks:");
-        for task in &tasks {
+        let filtered: Vec<&Task> = tasks
+            .iter()
+            .filter(|task| filter.map_or(true, |status| task.status == status))
+            .collect();
+        if filtered.is_empty() {
+            println!(
+                "No{}tasks found",
+                filter.map_or("".to_string(), |status| format!(" {} ", status.as_str()))
+            );
+            return;
+        }
+        for task in filtered {
             println!("#{} [{}] {}", task.id, task.status, task.description);
         }
     }

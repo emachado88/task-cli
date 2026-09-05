@@ -34,7 +34,7 @@ impl std::fmt::Display for Status {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct Task {
     id: u128,
     description: String,
@@ -130,24 +130,42 @@ fn add_task(description: String) {
     println!("{msg}");
 }
 
+fn load_task(id: u128) -> (Vec<Task>, usize) {
+    let tasks = read_tasks_file();
+    let pos = tasks
+        .iter()
+        .position(|task| task.id == id)
+        .unwrap_or_else(|| {
+            eprintln!("Task {id} not found.");
+            std::process::exit(1);
+        });
+    (tasks, pos)
+}
+
 fn delete_task(id: u128) {
-    let mut tasks = read_tasks_file();
-    let Some(pos) = tasks.iter().position(|task| task.id == id) else {
-        eprintln!("Task {id} not found.");
-        std::process::exit(1);
-    };
+    let (mut tasks, pos) = load_task(id);
     let task = tasks.remove(pos);
     write_tasks_file(tasks);
     println!("Deleted task {}: {}", task.id, task.description);
 }
 
 fn update_task(id: u128, description: String) {
-    let mut tasks = read_tasks_file();
-    let Some(task) = tasks.iter_mut().find(|task| task.id == id) else {
-        eprintln!("Task {id} not found.");
-        std::process::exit(1);
-    };
+    let (mut tasks, pos) = load_task(id);
+    let task = &mut tasks[pos];
     task.description = description;
+    task.updated_at = now_string();
+    let msg = format!(
+        "Task updated: #{} [{}] {}",
+        task.id, task.status, task.description
+    );
+    write_tasks_file(tasks);
+    println!("{msg}");
+}
+
+fn update_status(id: u128, status: Status) {
+    let (mut tasks, pos) = load_task(id);
+    let task = &mut tasks[pos];
+    task.status = status;
     task.updated_at = now_string();
     let msg = format!(
         "Task updated: #{} [{}] {}",
@@ -202,8 +220,28 @@ fn main() {
                 )
                 .about("deletes a task"),
         )
-        .subcommand(Command::new("mark-in-progress").about("marks a task as in progress"))
-        .subcommand(Command::new("mark-done").about("marks a task as done"))
+        .subcommand(
+            Command::new("mark-in-progress")
+                .about("marks a task as in progress")
+                .arg_required_else_help(true)
+                .arg(
+                    Arg::new("id")
+                        .help("task id to mark as in progress")
+                        .required(true)
+                        .value_parser(clap::value_parser!(u128)),
+                ),
+        )
+        .subcommand(
+            Command::new("mark-done")
+                .about("marks a task as done")
+                .arg_required_else_help(true)
+                .arg(
+                    Arg::new("id")
+                        .help("task id to mark as done")
+                        .required(true)
+                        .value_parser(clap::value_parser!(u128)),
+                ),
+        )
         .subcommand(Command::new("list").about("lists all tasks").subcommands([
             Command::new(Status::Todo.as_str()).about("lists all todo tasks"),
             Command::new(Status::InProgress.as_str()).about("lists all in progress tasks"),
@@ -238,6 +276,20 @@ fn main() {
                 panic!("description is required");
             });
         update_task(id.to_owned(), description.to_owned());
+    }
+
+    if let Some(update_matches) = matches.subcommand_matches("mark-in-progress") {
+        let id = update_matches.get_one::<u128>("id").unwrap_or_else(|| {
+            panic!("id is required");
+        });
+        update_status(id.to_owned(), Status::InProgress);
+    }
+
+    if let Some(update_matches) = matches.subcommand_matches("mark-done") {
+        let id = update_matches.get_one::<u128>("id").unwrap_or_else(|| {
+            panic!("id is required");
+        });
+        update_status(id.to_owned(), Status::Done);
     }
 
     if let Some(list_matches) = matches.subcommand_matches("list") {

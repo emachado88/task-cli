@@ -125,6 +125,17 @@ fn add_task(description: String) {
     write_tasks_file(tasks);
 }
 
+fn delete_task(id: u128) {
+    let mut tasks = read_tasks_file();
+    let Some(pos) = tasks.iter().position(|task| task.id == id) else {
+        eprintln!("Task {id} not found.");
+        std::process::exit(1);
+    };
+    let task = tasks.remove(pos);
+    write_tasks_file(tasks);
+    println!("Deleted task {}: {}", task.id, task.description);
+}
+
 fn main() {
     let matches = command!()
         .subcommand(
@@ -174,6 +185,13 @@ fn main() {
         add_task(description);
     }
 
+    if let Some(id) = matches.subcommand_matches("delete") {
+        let id = id.get_one::<u128>("id").unwrap_or_else(|| {
+            panic!("id is required");
+        });
+        delete_task(id.to_owned());
+    }
+
     if let Some(list_matches) = matches.subcommand_matches("list") {
         let filter = match list_matches.subcommand_name() {
             Some(name) if name == Status::Todo.as_str() => Some(Status::Todo),
@@ -195,7 +213,7 @@ fn main() {
             return;
         }
         for task in filtered {
-            println!("#{} [{}] {}", task.id, task.status, task.description);
+            println!("#{} [{}]  {}", task.id, task.status, task.description);
         }
     }
 }

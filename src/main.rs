@@ -9,6 +9,7 @@ use types::Status;
 
 fn main() {
     let matches = command!()
+        .arg_required_else_help(true)
         .subcommand(
             Command::new("add")
                 .about("adds a new task")

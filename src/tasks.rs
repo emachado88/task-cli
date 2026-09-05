@@ -52,7 +52,7 @@ pub fn list_tasks(filter: Option<Status>) {
     let tasks = read_tasks_file();
     let filtered: Vec<&Task> = tasks
         .iter()
-        .filter(|task| filter.map_or(true, |status| task.status == status))
+        .filter(|task| filter.is_none_or(|status| task.status == status))
         .collect();
     if filtered.is_empty() {
         println!(

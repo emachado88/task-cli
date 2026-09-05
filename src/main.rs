@@ -6,11 +6,29 @@ use std::fs;
 use std::io::{self, BufReader, Write};
 use std::path::Path;
 
+#[derive(Serialize, Deserialize, PartialEq, Clone, Copy)]
+#[serde(rename_all = "kebab-case")]
+enum Status {
+    Todo,
+    InProgress,
+    Done,
+}
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::Todo => write!(f, "todo"),
+            Status::InProgress => write!(f, "in-progress"),
+            Status::Done => write!(f, "done"),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct Task {
     id: u128,
     description: String,
-    status: String,
+    status: Status,
     created_at: String,
     updated_at: String,
 }
@@ -19,7 +37,7 @@ impl Task {
     fn new(
         id: u128,
         description: String,
-        status: String,
+        status: Status,
         created_at: String,
         updated_at: String,
     ) -> Self {
@@ -92,7 +110,7 @@ fn add_task(description: String) {
     let mut tasks = read_tasks_file();
     let id = tasks.len() as u128 + 1;
     let now = now_string();
-    let task = Task::new(id, description, String::from("todo"), now.clone(), now);
+    let task = Task::new(id, description, Status::Todo, now.clone(), now);
     tasks.push(task);
     write_tasks_file(tasks);
 }
@@ -140,7 +158,9 @@ fn main() {
             })
             .clone();
         add_task(description);
-    } else if matches.subcommand_matches("list").is_some() {
+    }
+
+    if matches.subcommand_matches("list").is_some() {
         let tasks = read_tasks_file();
         for task in &tasks {
             println!("#{} [{}] {}", task.id, task.status, task.description);

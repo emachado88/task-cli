@@ -300,7 +300,6 @@ fn main() {
             _ => None,
         };
         let tasks = read_tasks_file();
-        println!("Tasks:");
         let filtered: Vec<&Task> = tasks
             .iter()
             .filter(|task| filter.map_or(true, |status| task.status == status))
@@ -312,6 +311,8 @@ fn main() {
             );
             return;
         }
+
+        println!("Tasks:");
         for task in filtered {
             println!("#{} [{}]  {}", task.id, task.status, task.description);
         }

@@ -308,7 +308,7 @@ fn main() {
         if filtered.is_empty() {
             println!(
                 "No{}tasks found",
-                filter.map_or("".to_string(), |status| format!(" {} ", status.as_str()))
+                filter.map_or(" ".to_string(), |status| format!(" {} ", status.as_str()))
             );
             return;
         }

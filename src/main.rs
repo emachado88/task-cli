@@ -162,6 +162,7 @@ fn main() {
 
     if matches.subcommand_matches("list").is_some() {
         let tasks = read_tasks_file();
+        println!("Tasks:");
         for task in &tasks {
             println!("#{} [{}] {}", task.id, task.status, task.description);
         }
